@@ -6,8 +6,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -59,7 +60,7 @@ func TestWebhook_retry(t *testing.T) {
 	}
 
 	// Ensure we landed on example.com
-	bs, _ := ioutil.ReadAll(resp.Body)
+	bs, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if !bytes.Contains(bs, []byte("iana.org")) {
 		t.Errorf("resp.Body=%s", string(bs))
@@ -72,7 +73,7 @@ func TestWebhook_retry(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	bs, _ = ioutil.ReadAll(resp.Body)
+	bs, _ = io.ReadAll(resp.Body)
 	if !bytes.Contains(bs, []byte("didn't redirect")) {
 		t.Errorf("resp.Body=%s", string(bs))
 	}
@@ -117,6 +118,7 @@ func TestWebhook_call(t *testing.T) {
 	// override to add test TLS certificate
 	if tr, ok := webhookHTTPClient.Transport.(*http.Transport); ok {
 		if ctr, ok := server.Client().Transport.(*http.Transport); ok {
+			tr.TLSClientConfig = new(tls.Config)
 			tr.TLSClientConfig.RootCAs = ctr.TLSClientConfig.RootCAs
 		} else {
 			t.Errorf("unknown server.Client().Transport type: %T", server.Client().Transport)

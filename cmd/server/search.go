@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strconv"
@@ -42,10 +43,29 @@ type searcher struct {
 	// BIS
 	DPs []*DP
 
+	// TODO: this could be refactored into sub structs that have us/eu (and eventually others)
+
 	// US Consolidated Screening List
 	BISEntities      []*Result[csl.EL]
 	MilitaryEndUsers []*Result[csl.MEU]
 	SSIs             []*Result[csl.SSI]
+	UVLs             []*Result[csl.UVL]
+	ISNs             []*Result[csl.ISN]
+	FSEs             []*Result[csl.FSE]
+	PLCs             []*Result[csl.PLC]
+	CAPs             []*Result[csl.CAP]
+	DTCs             []*Result[csl.DTC]
+	CMICs            []*Result[csl.CMIC]
+	NS_MBSs          []*Result[csl.NS_MBS]
+
+	// EU Consolidated List of Sactions
+	EUCSL []*Result[csl.EUCSLRecord]
+
+	// UK Consolidated List of Sactions - OFSI
+	UKCSL []*Result[csl.UKCSLRecord]
+
+	// UK Sanctions List
+	UKSanctionsList []*Result[csl.UKSanctionsListRecord]
 
 	// metadata
 	lastRefreshedAt time.Time
@@ -630,6 +650,10 @@ func readInt(override string, value int) int {
 //
 // For more details see https://en.wikipedia.org/wiki/Jaro%E2%80%93Winkler_distance
 func jaroWinkler(s1, s2 string) float64 {
+	return jaroWinklerWithFavoritism(s1, s2, exactMatchFavoritism)
+}
+
+func jaroWinklerWithFavoritism(s1, s2 string, favoritism float64) float64 {
 	maxMatch := func(word string, parts []string) float64 {
 		if len(parts) == 0 {
 			return 0.0
@@ -653,7 +677,7 @@ func jaroWinkler(s1, s2 string) float64 {
 	for i := range s1Parts {
 		max := maxMatch(s1Parts[i], s2Parts)
 		if max >= 1.0 {
-			max += exactMatchFavoritism
+			max += favoritism
 		}
 		scores = append(scores, max)
 	}
@@ -669,7 +693,7 @@ func jaroWinkler(s1, s2 string) float64 {
 		sum += scores[i]
 	}
 
-	return sum / float64(len(scores))
+	return math.Min(sum/float64(len(scores)), 1.00)
 }
 
 // extractIDFromRemark attempts to parse out a National ID or similar governmental ID value
